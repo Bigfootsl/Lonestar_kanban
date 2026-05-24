@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kanban — Lone Star College RFCQ 26-05-03</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #1a1a2e; color: #e0e0e0; padding: 20px; transition: padding 0.2s; }
+h1 { font-size: 24px; margin-bottom: 4px; color: #fff; }
+.subtitle { color: #8899aa; margin-bottom: 20px; font-size: 14px; }
+.info-bar { background: linear-gradient(135deg, #64748B, #475569); color: #fff; padding: 12px 20px; border-radius: 8px; margin-bottom: 20px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 6px; }
+.toolbar { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; align-items: center; }
+.toolbar button { background: #0f3460; color: #5dade2; border: 1px solid #1a4a7a; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+.toolbar button:hover { background: #1a4a7a; }
+.sync-status { font-size: 11px; color: #667; margin-left: auto; }
+.sync-status.online { color: #27ae60; }
+.sync-status.error { color: #e74c3c; }
+.board { display: flex; gap: 16px; margin-bottom: 24px; min-height: 300px; }
+.column { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.col-hdr { font-size: 13px; font-weight: 600; text-transform: uppercase; padding: 10px 12px; border-radius: 6px 6px 0 0; display: flex; justify-content: space-between; align-items: center; }
+.col-hdr .count { font-size: 11px; opacity: 0.7; font-weight: 400; }
+.ch-b { background: #7f8c8d; color: #fff; }
+.ch-p { background: #f39c12; color: #fff; }
+.ch-d { background: #27ae60; color: #fff; }
+.col-body { background: #16213e; border-radius: 0 0 6px 6px; padding: 8px; min-height: 120px; flex: 1; }
+.card { background: #0f3460; border-radius: 6px; padding: 10px 12px; margin-bottom: 8px; font-size: 13px; color: #ddd; position: relative; cursor: grab; user-select: none; }
+.card .id { font-weight: 700; color: #5dade2; font-size: 11px; text-transform: uppercase; }
+.card .est { font-size: 11px; color: #8899aa; margin-top: 3px; }
+.card .actions { display: flex; gap: 4px; margin-top: 6px; }
+.card .actions button { background: none; border: 1px solid #334; color: #8899aa; border-radius: 4px; padding: 2px 8px; font-size: 11px; cursor: pointer; }
+.card .actions button:hover { border-color: #5dade2; color: #5dade2; }
+.card .actions .del:hover { border-color: #e74c3c; color: #e74c3c; }
+.card.done { background: #1a3a2e; }
+.card.done .id { color: #2ecc71; }
+.card.dragging { opacity: 0.5; }
+.col-body.drag-over { outline: 2px dashed #5dade2; outline-offset: -4px; }
+.add-btn { display: block; width: 100%; background: #1a2a4a; border: 1px dashed #334; color: #5dade2; border-radius: 6px; padding: 8px; margin-top: 6px; font-size: 13px; cursor: pointer; text-align: center; }
+.add-btn:hover { background: #1a3a5a; border-color: #5dade2; }
+.checklist { background: #16213e; border-radius: 8px; padding: 16px 20px; margin-bottom: 20px; }
+.checklist h3 { font-size: 16px; margin-bottom: 12px; color: #fff; }
+.ci { display: flex; align-items: center; gap: 10px; padding: 5px 0; font-size: 13px; cursor: pointer; }
+.ci .box { width: 18px; height: 18px; border: 2px solid #556; border-radius: 3px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 11px; color: #fff; }
+.ci .box.checked { background: #27ae60; border-color: #27ae60; }
+.ci .box.checked::after { content: '✓'; }
+.ci .label { user-select: none; }
+.ci .label.done { text-decoration: line-through; color: #667; }
+.files { background: #16213e; border-radius: 8px; padding: 16px 20px; margin-top: 16px; }
+.files h3 { font-size: 16px; margin-bottom: 12px; color: #fff; }
+.files .f { padding: 4px 0; font-size: 13px; color: #5dade2; }
+.footer { text-align: center; margin-top: 24px; font-size: 11px; color: #556; }
+@media (max-width: 700px) { .board { flex-direction: column; gap: 12px; } .col-hdr { border-radius: 6px; } .col-body { border-radius: 0 0 6px 6px; min-height: 60px; } }
+.modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 100; align-items: center; justify-content: center; }
+.modal.show { display: flex; }
+.modal-box { background: #1a1a2e; border: 1px solid #334; border-radius: 10px; padding: 24px; width: 90%; max-width: 420px; }
+.modal-box h3 { color: #fff; margin-bottom: 12px; }
+.modal-box input, .modal-box textarea, .modal-box select { width: 100%; background: #0f3460; border: 1px solid #334; color: #e0e0e0; border-radius: 6px; padding: 8px 10px; font-size: 13px; margin-bottom: 10px; font-family: inherit; }
+.modal-box textarea { min-height: 60px; resize: vertical; }
+.modal-box .m-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.modal-box .m-actions button { padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; border: none; }
+.modal-box .m-actions .save { background: #27ae60; color: #fff; }
+.modal-box .m-actions .cancel { background: #334; color: #ccc; }
+</style>
+</head>
+<body>
+<h1>Kanban — Lone Star College RFCQ 26-05-03</h1>
+<div class="subtitle">Clinical Diagnostic Imaging and Medical Education Equipment</div>
+<div class="info-bar">
+  <span><strong>Status:</strong> Questions Due: 5/26 10 AM CT | Response Due: 5/28 10 AM CT | TIPS Cooperative</span>
+  <span>Premium 7 Upright | Immersivevision Technology Inc.</span>
+</div>
+
+<div class="toolbar">
+  <button onclick="addCard('backlog')">+ Add Card</button>
+  <button onclick="refreshData()">↻ Refresh</button>
+  <span class="sync-status" id="syncStatus">Connecting…</span>
+</div>
+
+<div class="board" id="board"></div>
+
+<div class="checklist">
+  <h3>📋 Signature Checklist</h3>
+  <div id="checklist"></div>
+</div>
+
+<div class="files">
+  <h3>Key Info</h3>
+  <div class="f">📧 Jennifer LaRue: jennifer.larue@lonestar.edu (Procurement contact)</div>
+  <div class="f">🏷️ TIPS #12281 (fees covered by Immersivevision)</div>
+  <div class="f">📄 Form 1295: ethics.state.tx.us/filinginfo/1295</div>
+  <div class="f">💻 eBid portal: lonestar.edu eBid (Ion Wave)</div>
+</div>
+<div class="footer">Lone Star College RFCQ 26-05-03 | TIPS #12281 | Steven King, President</div>
+
+<div class="modal" id="editModal">
+  <div class="modal-box">
+    <h3 id="modalTitle">Edit Card</h3>
+    <input id="cardId" placeholder="ID (e.g. A)" maxlength="10">
+    <textarea id="cardText" placeholder="Card description"></textarea>
+    <input id="cardSub" placeholder="Subtitle (optional)" maxlength="60">
+    <select id="cardCol">
+      <option value="backlog">Backlog</option>
+      <option value="progress">In Progress</option>
+      <option value="done">Completed</option>
+    </select>
+    <div class="m-actions">
+      <button class="cancel" onclick="closeModal()">Cancel</button>
+      <button class="save" onclick="saveCard()">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = '/api';
+let data = { cards: [], checks: [] };
+let editingId = null;
+
+// ── API helpers ──
+async function apiGet(path) {
+  const r = await fetch(API + path);
+  return r.json();
+}
+async function apiPost(path, body) {
+  const r = await fetch(API + path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  return r.json();
+}
+
+// ── Load / sync ──
+async function loadData() {
+  try {
+    data = await apiGet('/');
+    setSync('online', 'Synced');
+    render();
+  } catch (e) {
+    setSync('error', 'Offline — changes saved locally');
+    // Fall back to localStorage
+    try {
+      const raw = localStorage.getItem('kanban_fallback');
+      if (raw) data = JSON.parse(raw);
+    } catch(e2) {}
+    render();
+  }
+}
+
+function saveLocal() {
+  try { localStorage.setItem('kanban_fallback', JSON.stringify(data)); } catch(e) {} 
+}
+
+function setSync(cls, text) {
+  const el = document.getElementById('syncStatus');
+  el.className = 'sync-status ' + cls;
+  el.textContent = text;
+}
+
+// ── Render ──
+function render() {
+  const COLUMNS = [
+    { key: 'backlog', label: 'Backlog', cls: 'ch-b' },
+    { key: 'progress', label: 'In Progress', cls: 'ch-p' },
+    { key: 'done', label: 'Completed', cls: 'ch-d' },
+  ];
+  const board = document.getElementById('board');
+  board.innerHTML = '';
+  COLUMNS.forEach(col => {
+    const cards = data.cards.filter(c => c.col === col.key);
+    const div = document.createElement('div');
+    div.className = 'column';
+    div.innerHTML = `<div class="col-hdr ${col.cls}"><span>${col.label} <span class="count">(${cards.length})</span></span></div>
+      <div class="col-body" data-col="${col.key}" ondragover="onDragOver(event)" ondrop="onDrop(event)" ondragleave="onDragLeave(event)">
+        ${cards.map(c => renderCard(c)).join('')}
+        <button class="add-btn" onclick="addCard('${col.key}')">+ Add Card</button>
+      </div>`;
+    board.appendChild(div);
+  });
+  renderChecks();
+  saveLocal();
+}
+
+function renderCard(c) {
+  const done = c.col === 'done';
+  return `<div class="card ${done?'done':''}" draggable="true" ondragstart="onDragStart(event,'${escHtml(c.id)}')" ondragend="onDragEnd(event)" onclick="editCard('${escHtml(c.id)}')">
+    <div class="id">${done?'✓ ':''}${escHtml(c.id)}</div>${escHtml(c.text)}
+    ${c.sub ? `<div class="est">${escHtml(c.sub)}</div>` : ''}
+    <div class="actions">
+      <button onclick="event.stopPropagation();moveCard('${escHtml(c.id)}','backlog')" ${c.col==='backlog'?'disabled style="opacity:0.3"':''}>◀ Backlog</button>
+      <button onclick="event.stopPropagation();moveCard('${escHtml(c.id)}','progress')" ${c.col==='progress'?'disabled style="opacity:0.3"':''}>● Progress</button>
+      <button onclick="event.stopPropagation();moveCard('${escHtml(c.id)}','done')" ${c.col==='done'?'disabled style="opacity:0.3"':''}>✓ Done</button>
+      <button class="del" onclick="event.stopPropagation();deleteCard('${escHtml(c.id)}')">✕</button>
+    </div></div>`;
+}
+
+function renderChecks() {
+  document.getElementById('checklist').innerHTML = (data.checks||[]).map((ch,i) =>
+    `<div class="ci" onclick="toggleCheck(${i})">
+      <span class="box ${ch.done?'checked':''}"></span>
+      <span class="label ${ch.done?'done':''}">${escHtml(ch.label)}</span></div>`
+  ).join('');
+}
+
+// ── Card CRUD ──
+async function moveCard(id, toCol) {
+  const c = data.cards.find(c => c.id === id);
+  if (c) { c.col = toCol; render(); }
+  try { await apiPost('/move', { id, col: toCol }); setSync('online', 'Synced'); } catch(e) { setSync('error', 'Saved locally'); }
+}
+
+async function deleteCard(id) {
+  if (!confirm('Delete card ' + id + '?')) return;
+  data.cards = data.cards.filter(c => c.id !== id); render();
+  try { await apiPost('/delete', { id }); setSync('online', 'Synced'); } catch(e) { setSync('error', 'Saved locally'); }
+}
+
+function addCard(col) { openModal({id:genId(),text:'',sub:'',col}, true); }
+function editCard(id) { const c = data.cards.find(c => c.id === id); if(c) openModal({...c}, false); }
+
+function openModal(card, isNew) {
+  editingId = isNew ? null : card.id;
+  document.getElementById('modalTitle').textContent = isNew ? 'Add Card' : 'Edit Card';
+  document.getElementById('cardId').value = card.id;
+  document.getElementById('cardText').value = card.text;
+  document.getElementById('cardSub').value = card.sub || '';
+  document.getElementById('cardCol').value = card.col;
+  document.getElementById('editModal').className = 'modal show';
+}
+function closeModal() { document.getElementById('editModal').className = 'modal'; }
+
+async function saveCard() {
+  const id = document.getElementById('cardId').value.trim();
+  const text = document.getElementById('cardText').value.trim();
+  const sub = document.getElementById('cardSub').value.trim();
+  const col = document.getElementById('cardCol').value;
+  if (!id || !text) { alert('ID and description required.'); return; }
+  if (editingId) {
+    const c = data.cards.find(x => x.id === editingId);
+    if (c) { c.id = id; c.text = text; c.sub = sub; c.col = col; }
+  } else {
+    data.cards.push({id, text, sub, col});
+  }
+  closeModal(); render();
+  try {
+    await apiPost('/save', { id, text, sub, col, isNew: !editingId, oldId: editingId });
+    setSync('online', 'Synced');
+  } catch(e) { setSync('error', 'Saved locally'); }
+}
+
+function genId() {
+  const used = data.cards.map(c => {const n=parseInt(c.id);return isNaN(n)?0:n;});
+  return String((used.length?Math.max(...used):0)+1);
+}
+
+// ── Checklist ──
+async function toggleCheck(i) {
+  data.checks[i].done = !data.checks[i].done; render();
+  try {
+    await apiPost('/check', { index: i, done: data.checks[i].done });
+    setSync('online', 'Synced');
+  } catch(e) { setSync('error', 'Saved locally'); }
+}
+
+// ── Drag & drop ──
+let draggedId = null;
+function onDragStart(e, id) { draggedId=id;e.target.classList.add('dragging');e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',id); }
+function onDragEnd(e) { e.target.classList.remove('dragging');document.querySelectorAll('.col-body').forEach(el=>el.classList.remove('drag-over')); }
+function onDragOver(e) { e.preventDefault();e.dataTransfer.dropEffect='move';e.currentTarget.classList.add('drag-over'); }
+function onDragLeave(e) { e.currentTarget.classList.remove('drag-over'); }
+function onDrop(e) { e.preventDefault();e.currentTarget.classList.remove('drag-over');const toCol=e.currentTarget.dataset.col;const id=e.dataTransfer.getData('text/plain')||draggedId;if(id&&toCol)moveCard(id,toCol);draggedId=null; }
+
+// ── Refresh ──
+async function refreshData() { await loadData(); }
+
+// ── Utils ──
+function escHtml(s) { const d=document.createElement('div');d.textContent=s;return d.innerHTML; }
+
+// ── Init ──
+loadData();
+// Auto-refresh every 15s
+setInterval(loadData, 15000);
+</script>
+</body>
+</html>
